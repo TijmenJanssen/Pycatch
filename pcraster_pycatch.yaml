@@ -1,0 +1,13 @@
+name: pcraster_pycatch
+channels:
+- conda-forge
+dependencies:
+- python=3.7
+- spyder
+- matplotlib
+- pcraster
+- numpy
+- sphinx
+- scipy
+- sympy
+- pysolar
