@@ -39,31 +39,6 @@ import rainfalleventsfromgammadistribution
 # from this folder
 import exchangevariables
 
-# TIJMEN CONSTRUCTION 
-# Toegevoegd
-# - str(path.Path(inputFolder,"x" +"step"))
-# - For loop bij einde
-# -albedo equation
-# -biomass plant height equation
-# -probalistic precipitation (checken)
-
-#Toevoegen
-#-stomatal conductance
-#meteo forcing (ERA-5)
-#nakijken discharge totaal voor EWS
-# Soil moisture wegschrijven zoals discharge
-# Regen prob vergroten
-# soilmoisture erbij
-# cfg parameters erbij?
-
-
-#OPMERKINGEN
-# aguila --timesteps=[1,9,1] filename
-#regolithThicknessHomogeneous heet nog zo, maar is wel gewoon uit het w-model
-
-
-inputFolder = "inputs"
-
 
 # only for advanced users
 # uncomment following line and comment second line in case of particle filtering
@@ -83,7 +58,7 @@ class CatchmentModel(pcrfw.DynamicModel, pcrfw.MonteCarloModel):
   def premcloop(self):
     self.clone = pcr.boolean(cfg.cloneString)
     variable_name  = generalfunctions.file_name_str("demM", '00', step)    
-    self.dem = pcr.scalar(str(pathlib.Path(inputFolder,variable_name[0])))
+    self.dem = pcr.scalar(str(pathlib.Path(cfg.inputFolder,variable_name[0])))
     self.createInstancesPremcloop()
     
     self.durationHistory = cfg.number_of_timesteps_hourly
@@ -92,8 +67,9 @@ class CatchmentModel(pcrfw.DynamicModel, pcrfw.MonteCarloModel):
     self.locations = pcr.cover(pcr.nominal(cfg.locations), 0)
     pcr.report(self.locations, 'locats')
     
-    # TIJMEN NU EVEN UIT
-    # self.forestNoForest = pcr.boolean(cfg.forestNoForest)
+    # TIJMEN: niet relevant
+    
+    # self.forestNoForest = pcr.boolean(cfg.5)
     # idMap = pcr.uniqueid(self.clone)
     # oneLocationPerArea = pcr.areamaximum(idMap, self.forestNoForest) == idMap
     # self.locationsForParameters = pcr.cover(pcr.nominal(pcr.scalar(pcr.ifthen(oneLocationPerArea, self.forestNoForest)) + 1), 0)
@@ -115,7 +91,8 @@ class CatchmentModel(pcrfw.DynamicModel, pcrfw.MonteCarloModel):
       
  
       
-      # RAINFALL
+      # TIJMEN/KOEN: RAINFALL
+      # in order to make rainfall corresponding between h and w model
       
       hours_per_week = 7 * 24
       nr_of_weeks = math.ceil(cfg.number_of_timesteps_hourly / hours_per_week)
@@ -131,7 +108,7 @@ class CatchmentModel(pcrfw.DynamicModel, pcrfw.MonteCarloModel):
     
     # First day of the week equals 1 if it rains in this week
       rairray_2D[:, 0] = rairray
-     #print(rairray_2D
+      #print(rairray_2D
     
     # Shuffles the hours in the week such that the rain does (most likely) not fall on the same day every week
       rairray_hours = np.copy(rairray_2D)
@@ -153,7 +130,7 @@ class CatchmentModel(pcrfw.DynamicModel, pcrfw.MonteCarloModel):
       self.isRainingTest = rairray_timeseries.astype(bool)
     #print(rairray_timeseries_bool)
 
-    
+      
 
 
   def dynamic(self):
@@ -166,20 +143,10 @@ class CatchmentModel(pcrfw.DynamicModel, pcrfw.MonteCarloModel):
     
     # time
     self.d_dateTimePCRasterPython.update()
-    timeDatetimeFormat = self.d_dateTimePCRasterPython.getTimeDatetimeFormat()
-
-    # precipitation
-    # for calibration
-#TIJMEN
-
-    # # OR: rainfallFluxDeterm = pcr.timeinputscalar(cfg.rainfallFluxDetermTimeSeries, pcr.nominal(cfg.rainfallFluxDetermTimeSeriesAreas))
-    # rainfallFluxDeterm = pcr.timeinputscalar(cfg.rainfallFluxDetermTimeSeries, pcr.nominal(cfg.cloneString))
-   
-    # # for the experiments
-    # rainfallFlux = rainfallFluxDeterm #generalfunctions.mapNormalRelativeError(rainfallFluxDeterm,0.25)
-    # self.d_exchangevariables.cumulativePrecipitation = \
-    #         self.d_exchangevariables.cumulativePrecipitation + rainfallFlux * self.timeStepDuration
+    timeDatetimeFormat = self.d_dateTimePCRasterPython.getTimeDatetimeFormat()          
     
+    
+    # TIJMEN/KOEN: precipitation
     
     if self.isRainingTest[self.currentTimeStep()]:
         rainfallFlux = pcr.scalar(cfg.expectedRainfallIntensity * generalfunctions.mapgamma(cfg.gammaShapeParameter))
@@ -187,20 +154,12 @@ class CatchmentModel(pcrfw.DynamicModel, pcrfw.MonteCarloModel):
     else:
         rainfallFlux = pcr.scalar(0)
         
-    rainfallAmount = rainfallFlux       
-            
-    # # precipitation
-    # isRaining,rainfallFlux,rainfallAmount= self.d_rainfalleventsfromgammadistribution.getRainstorm()    
-     
-
-    # self.d_exchangevariables.cumulativePrecipitation= \
-    #         self.d_exchangevariables.cumulativePrecipitation+rainfallFlux*self.timeStepDuration
-            
+    rainfallAmount = rainfallFlux     
+   
     
     self.report(rainfallFlux, 'rF')
     # self.report(rainfallAmount, 'rA')
             
-    # #####################################
     
     
     
@@ -219,7 +178,7 @@ class CatchmentModel(pcrfw.DynamicModel, pcrfw.MonteCarloModel):
     maximumSaturatedOverlandFlowInfiltrationFlux = self.d_subsurfaceWaterOneLayer.getMaximumAdditionFlux()
     potentialInfiltrationFlux = pcr.min(potentialHortonianInfiltrationFlux, maximumSaturatedOverlandFlowInfiltrationFlux)
 
-    # SOIL MOISTURE
+    # TIJMEN: soil moisture saving as numpy arry and map
     self.d_subsurfaceWaterOneLayer.calculateSoilMoistureFraction()
     variable = self.d_subsurfaceWaterOneLayer.soilMoistureFraction
     variable_mean = np.nanmean(pcr.pcr2numpy(variable, np.NaN))
@@ -241,9 +200,9 @@ class CatchmentModel(pcrfw.DynamicModel, pcrfw.MonteCarloModel):
     potentialOutSurfaceStoreFlux = self.d_surfaceStore.potentialOutFlux()  
      
     
-    self.report(runoffCubicMetresPerHour,'Ro')
+    # self.report(runoffCubicMetresPerHour,'Ro')
     
-    # TIJMEN added from w-model to save discharge as timeseries
+    # TIJMEN: added from weekly to save discharge as numpy timeseries
     downstreamEdge = generalfunctions.edge(self.clone, 2, 0)
     pits = pcr.pcrne(pcr.pit(self.d_runoffAccuthreshold.ldd), 0)
     outflowPoints = pcr.pcrand(downstreamEdge, pits)
@@ -257,8 +216,7 @@ class CatchmentModel(pcrfw.DynamicModel, pcrfw.MonteCarloModel):
     self.historyOfTotQ = generalfunctions.keepHistoryOfMaps(self.historyOfTotQ, variable_mean,
                                                                    self.durationHistory)
     
-    self.report(variable ,'test')
-    
+       
     if save_mean_timeseries:
         variable_mean_array = np.array(self.historyOfTotQ)
         generalfunctions.report_as_array(variable_mean_array, 'Rq', self.currentSampleNumber(),
@@ -388,16 +346,16 @@ class CatchmentModel(pcrfw.DynamicModel, pcrfw.MonteCarloModel):
     else:
       variable_name  = generalfunctions.file_name_str("micM", "00", step)
       maximumInterceptionCapacityPerLAI = generalfunctions.areauniformBounds(
-                                  0.0001, 0.0005, pcr.nominal(1), pcr.scalar(str(pathlib.Path(inputFolder,variable_name[0]))), cfg.createRealizations)
+                                  0.0001, 0.0005, pcr.nominal(1), pcr.scalar(str(pathlib.Path(cfg.inputFolder,variable_name[0]))), cfg.createRealizations)
       
       variable_name  = generalfunctions.file_name_str("Iks", '00', step)
       ksat = generalfunctions.areauniformBounds(
-                                  0.025, 0.05, pcr.nominal(1), pcr.scalar(str(pathlib.Path(inputFolder,variable_name[0]))), cfg.createRealizations)
+                                  0.025, 0.05, pcr.nominal(1), pcr.scalar(str(pathlib.Path(cfg.inputFolder,variable_name[0]))), cfg.createRealizations)
       
       variable_name  = generalfunctions.file_name_str("regM", '00', step)
       regolithThicknessHomogeneous = generalfunctions.areauniformBounds(
-                                  1.0, 3.5, cfg.areas, pcr.scalar(str(pathlib.Path(inputFolder,variable_name[0]))), cfg.createRealizations)
-      
+                                  1.0, 3.5, self.clone, pcr.scalar(str(pathlib.Path(cfg.inputFolder,variable_name[0]))), cfg.createRealizations)      
+
       saturatedConductivityMetrePerDay = generalfunctions.mapuniformBounds(
                                   25.0, 40.0, pcr.scalar(cfg.saturatedConductivityMetrePerDayValue), cfg.createRealizations)
      
@@ -425,16 +383,11 @@ class CatchmentModel(pcrfw.DynamicModel, pcrfw.MonteCarloModel):
                                     )
 
 
-   
-
-
-
-    ################
+       ################
     # interception #
     ################
 
-#TIJMEN 
-    #o: self.ldd = cfg.lddMap
+#TIJMEN  
     
     # self.ldd = pcr.ldd(self.dem)
     #self.ldd = pcr.lddcreate(self.dem,10,1e31,1e31,1e31) 
@@ -442,13 +395,13 @@ class CatchmentModel(pcrfw.DynamicModel, pcrfw.MonteCarloModel):
     
     
     self.ldd = pcr.lddcreate(self.dem,10,1e31,1e31,1e31)       
-    self.report(self.ldd, 'ldd')
+    
 
 
 
     initialInterceptionStore = pcr.scalar(0.000001)
     variable_name  = generalfunctions.file_name_str("laiM","00", step)  
-    leafAreaIndex = pcr.scalar(str(pathlib.Path(inputFolder,variable_name[0])))
+    leafAreaIndex = pcr.scalar(str(pathlib.Path(cfg.inputFolder,variable_name[0])))
     
     
     
@@ -457,7 +410,9 @@ class CatchmentModel(pcrfw.DynamicModel, pcrfw.MonteCarloModel):
       leafAreaIndex = generalfunctions.swapValuesOfTwoRegions(cfg.areas, leafAreaIndex, True)
     gapFraction = pcr.exp(-0.5 * leafAreaIndex)            # equation 40 in Brolsma et al 2010a
     maximumInterceptionStore = maximumInterceptionCapacityPerLAI * leafAreaIndex
-
+    
+  
+    
     self.d_interceptionuptomaxstore = interceptionuptomaxstore.InterceptionUpToMaxStore(
                                     self.ldd,
                                     initialInterceptionStore,
@@ -496,7 +451,7 @@ class CatchmentModel(pcrfw.DynamicModel, pcrfw.MonteCarloModel):
     # note that I also changed the name for the initial soil moisture as a fraction
     
     variable_name  = generalfunctions.file_name_str("moiM", '00', step)    
-    initialSoilMoistureFractionFromDisk = pcr.scalar(str(pathlib.Path(inputFolder,variable_name[0])))
+    initialSoilMoistureFractionFromDisk = pcr.scalar(str(pathlib.Path(cfg.inputFolder,variable_name[0])))
       
     if cfg.swapCatchments:
       initialSoilMoistureFractionFromDisk = generalfunctions.swapValuesOfTwoRegions(cfg.areas, initialSoilMoistureFractionFromDisk, True)
@@ -571,22 +526,20 @@ class CatchmentModel(pcrfw.DynamicModel, pcrfw.MonteCarloModel):
     ######################
     # evapotranspiration #
     ######################
+    
+#TIJMEN: toegevoegd Albedo, maxStomatalConductance, vegetationHeight
 
     albedo = gapFraction * cfg.albedoSoil + (1-gapFraction) * cfg.albedoVeg    
     if cfg.swapCatchments:
       albedo = generalfunctions.swapValuesOfTwoRegions(cfg.areas, albedo, True)
       
-#TIJMEN
-    # O:     maxStomatalConductance = pcr.scalar(cfg.maxStomatalConductanceValue) * multiplierMaxStomatalConductance
-    # Nu is het dummie getal, nakijken in literatuur
-    
+        
     maxStomatalConductance = pcr.scalar(0.004) * multiplierMaxStomatalConductance
     if cfg.swapCatchments:
       maxStomatalConductance = generalfunctions.swapValuesOfTwoRegions(cfg.areas, maxStomatalConductance, True)
 
     variable_name  = generalfunctions.file_name_str("bioM", "00", step)
-    biomass = pcr.scalar(str(pathlib.Path(inputFolder,variable_name[0])))
-
+    biomass = pcr.scalar(str(pathlib.Path(cfg.inputFolder,variable_name[0])))
     
     vegetationHeight = (biomass/0.679)**(1/0.997) #Proulx 2021         
     
@@ -600,6 +553,10 @@ class CatchmentModel(pcrfw.DynamicModel, pcrfw.MonteCarloModel):
                                          leafAreaIndex,
                                          cfg.timesteps_to_report_some_hourly,
                                          cfg.evapotrans_report_rasters)
+    
+    
+    
+    
 
 
   def reportComponentsDynamic(self):
@@ -631,7 +588,7 @@ class CatchmentModel(pcrfw.DynamicModel, pcrfw.MonteCarloModel):
     see also reportAsNumpyComponentsPostmcloop
     """
 
-    # report dynamic components as numpy, see also 'reportAsNupyComponentsPostmcloop'
+    # report dynamic components as numpy, see also 'reportAsNumpyComponentsPostmcloop'
     self.d_runoffAccuthreshold.reportAsNumpy(self.locations, self.currentSampleNumber(), self.currentTimeStep())
     self.d_subsurfaceWaterOneLayer.reportAsNumpy(self.locations, self.currentSampleNumber(), self.currentTimeStep())
     self.d_interceptionuptomaxstore.reportAsNumpy(self.locations, self.currentSampleNumber(), self.currentTimeStep())
@@ -868,11 +825,10 @@ print(timesteps_)
 start_time = time.time()
 
 
-# TIJMEN: ORIGINEEL for k, step in enumerate(np.arange(100, cfg.number_of_timesteps_weekly + 100, 100)):
+# TIJMEN: ORIGINEEL: for k, step in enumerate(np.arange(100, cfg.number_of_timesteps_weekly + 100, 100)):
 # In np.arragne(x,y,z) is x het eerste snapshot, y de laatste en z de stapgrootte ertussen. 
 # Voor specifiek snapshot gebruik #for k, step in enumerate([x]): met voor x eg 100
 
-# TO DO: LAATSTE SNAPSHOT STAAT NOG ONDER MAP 1, OPZICH MAAKT DAT NIET UIT
 
 for k, step in enumerate(timesteps_):
 #for k, step in enumerate(np.arange(100, cfg.number_of_timesteps_weekly + 100, cfg.stepsizeSnapshots)):
@@ -923,3 +879,4 @@ for k, step in enumerate(timesteps_):
         
 end_time = time.time()
 print('Elapsed timee for Pychatch h-model loops is', ((end_time - start_time)/60), 'minutes' )
+print(timesteps_)
